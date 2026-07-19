@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -150,6 +151,41 @@ def test_evaluate_reads_and_validates_json(app_config, sample_posts, tmp_path) -
 
     assert len(result["candidates"]) == 5
     assert stderr_path.read_text(encoding="utf-8") == "diagnostic\n"
+
+
+def test_evaluate_applies_custom_candidate_count_to_prompt_and_schema(
+    app_config, sample_posts, tmp_path
+) -> None:
+    custom_config = replace(app_config.codex, final_candidate_count=3)
+    expected = candidate_result(sample_posts, count=3)
+    received_schema = None
+
+    def fake_run(command, **kwargs):
+        nonlocal received_schema
+        schema_index = command.index("--output-schema") + 1
+        received_schema = json.loads(Path(command[schema_index]).read_text(encoding="utf-8"))
+        assert "정확히 3개" in kwargs["input"]
+        assert '"final_candidate_count": 3' in kwargs["input"]
+        output_index = command.index("--output-last-message") + 1
+        Path(command[output_index]).write_text(json.dumps(expected), encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    runner = CodexRunner(
+        custom_config,
+        SCHEMA_PATH,
+        PROMPT_PATH,
+        process_runner=fake_run,
+        which=lambda name: "/tools/codex",
+    )
+
+    result = runner.evaluate(sample_posts, "2026-07-19", tmp_path / "stderr.log")
+
+    assert len(result["candidates"]) == 3
+    assert received_schema is not None
+    candidates_schema = received_schema["properties"]["candidates"]
+    assert candidates_schema["minItems"] == 3
+    assert candidates_schema["maxItems"] == 3
+    assert candidates_schema["items"]["properties"]["rank"]["maximum"] == 3
 
 
 def test_validate_rejects_wrong_count_and_unknown_post(app_config, sample_posts) -> None:

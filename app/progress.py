@@ -4,6 +4,52 @@ import logging
 import math
 import time
 from collections.abc import Callable
+from typing import TextIO
+
+
+class ProgressStreamHandler(logging.StreamHandler):
+    """Render progress records in place while keeping ordinary logs line based."""
+
+    def __init__(self, stream: TextIO | None = None) -> None:
+        super().__init__(stream)
+        self._progress_active = False
+        self._progress_length = 0
+
+    def _finish_progress(self) -> None:
+        if self._progress_active:
+            self.stream.write(self.terminator)
+            self.flush()
+            self._progress_active = False
+            self._progress_length = 0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = self.format(record)
+            if getattr(record, "progress_update", False):
+                padding = " " * max(0, self._progress_length - len(message))
+                self.stream.write(f"\r{message}{padding}")
+                self.flush()
+                if getattr(record, "progress_complete", False):
+                    self.stream.write(self.terminator)
+                    self.flush()
+                    self._progress_active = False
+                    self._progress_length = 0
+                else:
+                    self._progress_active = True
+                    self._progress_length = len(message)
+                return
+
+            self._finish_progress()
+            self.stream.write(message + self.terminator)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
+
+    def close(self) -> None:
+        self._finish_progress()
+        super().close()
 
 
 def _duration(seconds: float | None) -> str:
@@ -18,7 +64,7 @@ def _duration(seconds: float | None) -> str:
 
 
 class ProgressBar:
-    """Log a compact progress bar at roughly five-percent intervals."""
+    """Log a compact progress bar at roughly two-percent intervals."""
 
     def __init__(
         self,
@@ -38,7 +84,7 @@ class ProgressBar:
         self.succeeded = 0
         self.failed = 0
         self.started_at = clock()
-        self.update_interval = max(1, math.ceil(self.total / 20))
+        self.update_interval = max(1, math.ceil(self.total / 50))
 
     def start(self) -> None:
         self._render()
@@ -73,4 +119,8 @@ class ProgressBar:
             self.failed,
             _duration(elapsed),
             _duration(remaining),
+            extra={
+                "progress_update": True,
+                "progress_complete": self.completed >= self.total,
+            },
         )

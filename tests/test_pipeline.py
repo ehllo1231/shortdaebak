@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime
 
 from app.codex_runner import CodexError
@@ -30,7 +31,7 @@ class SuccessfulRunner:
 
     def evaluate(self, posts, run_date, stderr_path):
         stderr_path.write_text("", encoding="utf-8")
-        return candidate_result(posts, run_date)
+        return candidate_result(posts, run_date, self.config.final_candidate_count)
 
 
 class FailedPreflightRunner(SuccessfulRunner):
@@ -57,6 +58,28 @@ def test_pipeline_success_creates_timestamped_artifacts(app_config, sample_posts
     run = json.loads((result.output_directory / "run.json").read_text(encoding="utf-8"))
     assert run["status"] == "success"
     assert run["prefiltered_count"] == 20
+
+
+def test_pipeline_uses_custom_final_candidate_count(app_config, sample_posts) -> None:
+    FakeCrawler.posts = sample_posts
+    custom_config = replace(
+        app_config,
+        codex=replace(app_config.codex, final_candidate_count=3),
+    )
+
+    result = run_pipeline(
+        custom_config,
+        now=datetime(2026, 7, 19, 12, 40, tzinfo=KST),
+        crawler_factory=FakeCrawler,
+        codex_runner_factory=SuccessfulRunner,
+    )
+
+    candidates = json.loads(
+        (result.output_directory / "candidates.json").read_text(encoding="utf-8")
+    )
+    report = (result.output_directory / "report.html").read_text(encoding="utf-8")
+    assert len(candidates["candidates"]) == 3
+    assert "최종 3개를 선정했습니다." in report
 
 
 def test_pipeline_codex_failure_keeps_collection_and_fallback(app_config, sample_posts) -> None:

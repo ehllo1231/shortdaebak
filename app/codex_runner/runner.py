@@ -20,6 +20,7 @@ from app.storage import write_text_atomic
 ProcessRunner = Callable[..., subprocess.CompletedProcess[str]]
 WhichRunner = Callable[[str], str | None]
 MAX_BODY_CHARACTERS = 6_000
+FINAL_COUNT_TOKEN = "{{FINAL_CANDIDATE_COUNT}}"
 
 
 class CodexError(RuntimeError):
@@ -157,15 +158,21 @@ class CodexRunner:
             return self._schema
         try:
             schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
+            candidates_schema = schema["properties"]["candidates"]
+            candidates_schema["minItems"] = self.config.final_candidate_count
+            candidates_schema["maxItems"] = self.config.final_candidate_count
+            candidates_schema["items"]["properties"]["rank"]["maximum"] = (
+                self.config.final_candidate_count
+            )
             Draft202012Validator.check_schema(schema)
-        except (OSError, json.JSONDecodeError, SchemaError) as exc:
+        except (OSError, json.JSONDecodeError, SchemaError, KeyError, TypeError) as exc:
             raise CodexError(
                 f"JSON Schema를 읽을 수 없습니다: {exc}", code="schema_invalid"
             ) from exc
         self._schema = schema
         return schema
 
-    def build_command(self, output_path: Path) -> list[str]:
+    def build_command(self, output_path: Path, *, schema_path: Path | None = None) -> list[str]:
         executable = self.executable or self._resolve_executable()
         command = [
             executable,
@@ -178,7 +185,7 @@ class CodexRunner:
             "--ignore-user-config",
             "--ignore-rules",
             "--output-schema",
-            str(self.schema_path),
+            str(schema_path or self.schema_path),
             "--output-last-message",
             str(output_path),
         ]
@@ -194,9 +201,13 @@ class CodexRunner:
             raise CodexError(
                 f"평가 프롬프트를 읽을 수 없습니다: {exc}", code="prompt_missing"
             ) from exc
+        instructions = instructions.replace(
+            FINAL_COUNT_TOKEN, str(self.config.final_candidate_count)
+        )
         data = {
             "run_date": run_date,
             "candidate_count": len(posts),
+            "final_candidate_count": self.config.final_candidate_count,
             "posts": [],
         }
         for post in posts:
@@ -272,9 +283,12 @@ class CodexRunner:
                 raise CodexError("Codex 요약이 3줄을 초과했습니다.", code="result_integrity_failed")
             ranks.add(candidate["rank"])
             urls.add(url)
-        if ranks != {1, 2, 3, 4, 5}:
+        expected_ranks = set(range(1, self.config.final_candidate_count + 1))
+        if ranks != expected_ranks:
             raise CodexError(
-                "Codex 후보 순위가 1~5를 정확히 포함하지 않습니다.", code="result_integrity_failed"
+                f"Codex 후보 순위가 1~{self.config.final_candidate_count}를 "
+                "정확히 포함하지 않습니다.",
+                code="result_integrity_failed",
             )
         value["candidates"].sort(key=lambda item: item["rank"])
         return value
@@ -282,14 +296,20 @@ class CodexRunner:
     def evaluate(self, posts: list[Post], run_date: str, stderr_path: Path) -> dict[str, Any]:
         if len(posts) < self.config.final_candidate_count:
             raise CodexError(
-                "Codex 평가에 필요한 5개 후보가 없습니다.", code="insufficient_candidates"
+                f"Codex 평가에 필요한 {self.config.final_candidate_count}개 후보가 없습니다.",
+                code="insufficient_candidates",
             )
-        self._load_schema()
+        schema = self._load_schema()
         stdin = self.build_stdin(posts, run_date)
         with tempfile.TemporaryDirectory(prefix="dc-shorts-codex-") as temporary_directory:
             temporary_path = Path(temporary_directory)
             result_path = temporary_path / "candidates.json"
-            command = self.build_command(result_path)
+            runtime_schema_path = temporary_path / "candidates.schema.json"
+            write_text_atomic(
+                runtime_schema_path,
+                json.dumps(schema, ensure_ascii=False, indent=2) + "\n",
+            )
+            command = self.build_command(result_path, schema_path=runtime_schema_path)
             try:
                 result = self._run_process(
                     command,

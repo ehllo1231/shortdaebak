@@ -232,8 +232,10 @@ def load_config(path: str | Path) -> AppConfig:
     final_count = _positive_int(
         codex.get("final_candidate_count", 5), "codex.final_candidate_count"
     )
-    if final_count != 5:
-        raise ConfigError("MVP의 codex.final_candidate_count는 5여야 합니다.")
+    if final_count > prefilter_config.candidate_count:
+        raise ConfigError(
+            "codex.final_candidate_count는 prefilter.candidate_count 이하여야 합니다."
+        )
     sandbox = codex.get("sandbox", "read-only")
     if sandbox != "read-only":
         raise ConfigError("Codex 평가용 sandbox는 read-only만 허용합니다.")

@@ -17,7 +17,7 @@ def _excerpt(body: str, limit: int = 240) -> str:
     return text[: limit - 1].rstrip() + "..."
 
 
-def build_fallback_candidates(posts: list[Post]) -> list[dict[str, Any]]:
+def build_fallback_candidates(posts: list[Post], *, limit: int = 5) -> list[dict[str, Any]]:
     return [
         {
             "rank": index,
@@ -31,7 +31,7 @@ def build_fallback_candidates(posts: list[Post]) -> list[dict[str, Any]]:
             "comments": post.comments,
             "gallery_name": post.gallery_name,
         }
-        for index, post in enumerate(posts[:5], start=1)
+        for index, post in enumerate(posts[:limit], start=1)
     ]
 
 
@@ -44,6 +44,7 @@ def render_report(
     candidates: list[dict[str, Any]],
     collection_count: int,
     prefiltered_count: int,
+    final_candidate_count: int = 5,
     codex_error: str | None = None,
 ) -> None:
     templates = Path(__file__).parent / "templates"
@@ -61,6 +62,7 @@ def render_report(
         candidates=candidates,
         collection_count=collection_count,
         prefiltered_count=prefiltered_count,
+        final_candidate_count=final_candidate_count,
         codex_error=codex_error,
     )
     write_text_atomic(output_path, html)

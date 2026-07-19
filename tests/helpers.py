@@ -5,7 +5,9 @@ from typing import Any
 from app.models import Post
 
 
-def candidate_result(posts: list[Post], run_date: str = "2026-07-19") -> dict[str, Any]:
+def candidate_result(
+    posts: list[Post], run_date: str = "2026-07-19", count: int = 5
+) -> dict[str, Any]:
     return {
         "run_date": run_date,
         "evaluation_status": "codex",
@@ -27,6 +29,6 @@ def candidate_result(posts: list[Post], run_date: str = "2026-07-19") -> dict[st
                 "risk_level": "low",
                 "review_notes": "원문의 사실 관계를 추가로 확인해야 한다.",
             }
-            for rank, post in enumerate(posts[:5], start=1)
+            for rank, post in enumerate(posts[:count], start=1)
         ],
     }

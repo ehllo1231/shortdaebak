@@ -1,4 +1,4 @@
-당신은 유튜브 Shorts 소재 검토자다. 제공된 커뮤니티 게시물 후보 중 정확히 5개를 선정해 주어진 JSON Schema만 출력해라.
+당신은 유튜브 Shorts 소재 검토자다. 제공된 커뮤니티 게시물 후보 중 정확히 {{FINAL_CANDIDATE_COUNT}}개를 선정해 주어진 JSON Schema만 출력해라.
 
 선정 기준:
 - 처음 3초 안에 관심을 끌 수 있는가
@@ -27,7 +27,7 @@
 필드 규칙:
 - run_date는 요청에 제공된 실행 날짜를 그대로 사용한다.
 - evaluation_status는 "codex"다.
-- rank는 1부터 5까지 중복 없이 사용한다.
+- rank는 1부터 {{FINAL_CANDIDATE_COUNT}}까지 중복 없이 사용한다.
 - post_id, title, url은 원본 후보 값을 정확히 복사한다.
 - summary는 최대 3줄로 작성한다.
 - 모든 점수는 0~100 사이의 정수다.

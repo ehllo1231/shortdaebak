@@ -31,14 +31,27 @@ def test_reject_unknown_setting(tmp_path: Path) -> None:
         load_config(path)
 
 
-def test_reject_non_chatgpt_candidate_count(tmp_path: Path) -> None:
+def test_accept_custom_final_candidate_count(tmp_path: Path) -> None:
     example = Path("config.example.yaml").read_text(encoding="utf-8")
     path = tmp_path / "config.yaml"
     path.write_text(
-        example.replace("final_candidate_count: 5", "final_candidate_count: 4"), encoding="utf-8"
+        example.replace("final_candidate_count: 5", "final_candidate_count: 3"), encoding="utf-8"
     )
 
-    with pytest.raises(ConfigError, match="5"):
+    config = load_config(path)
+
+    assert config.codex.final_candidate_count == 3
+
+
+def test_reject_final_candidate_count_above_prefilter_count(tmp_path: Path) -> None:
+    example = Path("config.example.yaml").read_text(encoding="utf-8")
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        example.replace("final_candidate_count: 5", "final_candidate_count: 21"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="prefilter.candidate_count"):
         load_config(path)
 
 

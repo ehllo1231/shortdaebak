@@ -12,7 +12,7 @@ from app.pipeline import run_pipeline
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m app",
-        description="DCInside 게시물에서 YouTube Shorts 후보 5개를 선별합니다.",
+        description="DCInside 게시물에서 YouTube Shorts 후보를 선별합니다.",
     )
     parser.add_argument("--config", required=True, type=Path, help="YAML 설정 파일 경로")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")

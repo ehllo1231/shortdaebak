@@ -14,6 +14,7 @@ from app.config import AppConfig
 from app.crawler import CrawlBlockedError, CrawlError, DcinsideCrawler
 from app.filtering import filter_posts
 from app.models import KST, HistoryIndex, Post
+from app.progress import ProgressStreamHandler
 from app.reporting import build_fallback_candidates, render_report
 from app.storage import write_json_atomic, write_text_atomic
 
@@ -53,7 +54,7 @@ def _configure_logger(log_path: Path) -> logging.Logger:
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
     file_handler.setFormatter(formatter)
-    stream_handler = logging.StreamHandler(sys.stderr)
+    stream_handler = ProgressStreamHandler(sys.stderr)
     stream_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
@@ -180,18 +181,28 @@ def run_pipeline(
         if len(selected) < config.codex.final_candidate_count:
             status = "insufficient_candidates"
             exit_code = 3
-            candidates = build_fallback_candidates(selected)
-            logger.warning("Codex 평가 생략: 후보가 %d개로 5개보다 적습니다.", len(selected))
+            candidates = build_fallback_candidates(
+                selected, limit=config.codex.final_candidate_count
+            )
+            logger.warning(
+                "Codex 평가 생략: 후보가 %d개로 설정한 %d개보다 적습니다.",
+                len(selected),
+                config.codex.final_candidate_count,
+            )
         elif not config.codex.enabled:
             status = "codex_fallback"
             exit_code = 4
             codex_error = "설정에서 Codex 평가가 비활성화되어 있습니다."
-            candidates = build_fallback_candidates(selected)
+            candidates = build_fallback_candidates(
+                selected, limit=config.codex.final_candidate_count
+            )
         elif codex_preflight_error is not None:
             status = "codex_fallback"
             exit_code = 4
             codex_error = str(codex_preflight_error)
-            candidates = build_fallback_candidates(selected)
+            candidates = build_fallback_candidates(
+                selected, limit=config.codex.final_candidate_count
+            )
         else:
             try:
                 evaluation = runner.evaluate(selected, started_at.date().isoformat(), stderr_path)
@@ -200,14 +211,16 @@ def run_pipeline(
                 status = "success"
                 exit_code = 0
                 run_data["codex"]["used"] = True
-                logger.info("Codex 평가 완료: 5개 후보")
+                logger.info("Codex 평가 완료: %d개 후보", config.codex.final_candidate_count)
             except CodexError as exc:
                 status = "codex_fallback"
                 exit_code = 4
                 codex_error = str(exc)
                 run_data["codex"]["used"] = True
                 run_data["codex"]["error_code"] = exc.code
-                candidates = build_fallback_candidates(selected)
+                candidates = build_fallback_candidates(
+                    selected, limit=config.codex.final_candidate_count
+                )
                 logger.error("Codex 평가 실패 [%s]: %s", exc.code, exc)
 
         run_data["displayed_count"] = len(candidates)
@@ -219,6 +232,7 @@ def run_pipeline(
             candidates=candidates,
             collection_count=len(posts),
             prefiltered_count=len(selected),
+            final_candidate_count=config.codex.final_candidate_count,
             codex_error=codex_error,
         )
     except CrawlBlockedError as exc:
@@ -236,6 +250,7 @@ def run_pipeline(
             candidates=[],
             collection_count=0,
             prefiltered_count=0,
+            final_candidate_count=config.codex.final_candidate_count,
             codex_error=str(exc),
         )
     except CrawlError as exc:
@@ -253,6 +268,7 @@ def run_pipeline(
             candidates=[],
             collection_count=0,
             prefiltered_count=0,
+            final_candidate_count=config.codex.final_candidate_count,
             codex_error=str(exc),
         )
     except Exception as exc:
@@ -274,6 +290,7 @@ def run_pipeline(
             candidates=[],
             collection_count=run_data["collection_count"],
             prefiltered_count=run_data["prefiltered_count"],
+            final_candidate_count=config.codex.final_candidate_count,
             codex_error="예상하지 못한 내부 오류가 발생했습니다. run.log를 확인하세요.",
         )
     finally:
