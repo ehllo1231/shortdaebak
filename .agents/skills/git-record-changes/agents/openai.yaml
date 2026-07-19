@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git 변경 커밋"
+  short_description: "코드 변경을 검증하고 안전한 Git 커밋으로 기록"
+  default_prompt: "Use $git-record-changes to verify and commit the changes from this task without pushing."
