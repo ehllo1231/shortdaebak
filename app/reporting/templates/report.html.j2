@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shorts 후보 보고서 - {{ generated_at.strftime('%Y-%m-%d %H:%M') }}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #f4f6f8;
+      --surface: #ffffff;
+      --text: #18202a;
+      --muted: #5f6b78;
+      --line: #d9dfe6;
+      --accent: #006d77;
+      --accent-soft: #e2f2f2;
+      --warn: #8a4b00;
+      --warn-soft: #fff1d6;
+      --danger: #a11b26;
+      --danger-soft: #ffe8ea;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      background: #16212b;
+      color: #fff;
+      border-bottom: 4px solid var(--accent);
+    }
+    .header-inner, main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+    .header-inner { padding: 28px 0 24px; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0; }
+    .run-meta { margin: 7px 0 0; color: #c7d1da; font-size: 14px; }
+    main { padding: 24px 0 48px; }
+    .status {
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      background: var(--surface);
+      border-radius: 4px;
+    }
+    .status.warning { border-left-color: var(--warn); background: var(--warn-soft); }
+    .status.error { border-left-color: var(--danger); background: var(--danger-soft); }
+    .status strong { display: block; margin-bottom: 3px; }
+    .status p { margin: 0; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .metric { padding: 14px 16px; border-bottom: 2px solid var(--line); background: var(--surface); }
+    .metric span { display: block; color: var(--muted); font-size: 13px; }
+    .metric strong { display: block; margin-top: 2px; font-size: 22px; }
+    .candidate-list { display: grid; gap: 16px; }
+    article {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    article.high { border-color: #dc7b84; }
+    .candidate-head {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .rank {
+      flex: 0 0 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      background: #16212b;
+      color: #fff;
+      font-weight: 700;
+      border-radius: 4px;
+    }
+    h2 { margin: 0; font-size: 18px; letter-spacing: 0; overflow-wrap: anywhere; }
+    .source { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .candidate-body { padding: 16px 18px 18px; }
+    .candidate-body h3 { margin: 16px 0 4px; font-size: 13px; color: var(--muted); letter-spacing: 0; }
+    .candidate-body h3:first-child { margin-top: 0; }
+    .candidate-body p { margin: 0; white-space: pre-line; }
+    .hook { color: var(--accent); font-weight: 700; }
+    .scores {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .score { padding: 9px 8px; text-align: center; background: #f0f3f5; }
+    .score span { display: block; color: var(--muted); font-size: 11px; }
+    .score strong { font-size: 18px; }
+    .risk-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+    .risk {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .risk.medium { color: var(--warn); border-color: #d9a151; background: var(--warn-soft); }
+    .risk.high { color: var(--danger); border-color: #dc7b84; background: var(--danger-soft); }
+    ul { margin: 7px 0 0; padding-left: 20px; }
+    .original {
+      display: inline-block;
+      margin-top: 16px;
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .original:hover { text-decoration: underline; }
+    .fallback-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; color: var(--muted); }
+    footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 700px) {
+      .header-inner, main { width: min(100% - 20px, 1080px); }
+      h1 { font-size: 23px; }
+      .summary { grid-template-columns: 1fr; }
+      .scores { grid-template-columns: repeat(2, 1fr); }
+      .candidate-head { padding: 14px; }
+      .candidate-body { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>DCInside Shorts 후보</h1>
+      <p class="run-meta">실행 {{ run_id }} · {{ generated_at.strftime('%Y-%m-%d %H:%M:%S KST') }}</p>
+    </div>
+  </header>
+  <main>
+    {% if status == 'success' %}
+    <section class="status">
+      <strong>Codex 평가 완료</strong>
+      <p>규칙 기반 후보 중 Codex가 최종 5개를 선정했습니다.</p>
+    </section>
+    {% elif status == 'codex_fallback' %}
+    <section class="status warning">
+      <strong>Codex 평가가 실패하여 규칙 기반 임시 후보가 표시되었습니다.</strong>
+      <p>{{ codex_error or '세부 내용은 실행 로그를 확인하세요.' }}</p>
+    </section>
+    {% elif status == 'insufficient_candidates' %}
+    <section class="status warning">
+      <strong>평가할 후보가 5개보다 적습니다.</strong>
+      <p>Codex를 호출하지 않았고, 수집된 규칙 기반 후보만 표시합니다.</p>
+    </section>
+    {% else %}
+    <section class="status error">
+      <strong>실행을 완료하지 못했습니다.</strong>
+      <p>{{ codex_error or '세부 내용은 실행 로그를 확인하세요.' }}</p>
+    </section>
+    {% endif %}
+
+    <section class="summary" aria-label="실행 요약">
+      <div class="metric"><span>수집 성공</span><strong>{{ collection_count }}</strong></div>
+      <div class="metric"><span>규칙 후보</span><strong>{{ prefiltered_count }}</strong></div>
+      <div class="metric"><span>표시 후보</span><strong>{{ candidates | length }}</strong></div>
+    </section>
+
+    <section class="candidate-list" aria-label="Shorts 후보">
+      {% for candidate in candidates %}
+      <article class="{{ candidate.risk_level | default('') }}">
+        <div class="candidate-head">
+          <div class="rank">{{ candidate.rank }}</div>
+          <div>
+            <h2>{{ candidate.title }}</h2>
+            <div class="source">ID {{ candidate.post_id }}</div>
+          </div>
+        </div>
+        <div class="candidate-body">
+          {% if status == 'success' %}
+          <h3>요약</h3>
+          <p>{{ candidate.summary }}</p>
+          <h3>추천 이유</h3>
+          <p>{{ candidate.reason }}</p>
+          <h3>예상 훅</h3>
+          <p class="hook">{{ candidate.hook }}</p>
+          <div class="scores">
+            <div class="score"><span>재미</span><strong>{{ candidate.fun_score }}</strong></div>
+            <div class="score"><span>반전</span><strong>{{ candidate.twist_score }}</strong></div>
+            <div class="score"><span>명확성</span><strong>{{ candidate.clarity_score }}</strong></div>
+            <div class="score"><span>Shorts 적합도</span><strong>{{ candidate.shorts_fit_score }}</strong></div>
+            <div class="score"><span>종합</span><strong>{{ candidate.total_score }}</strong></div>
+          </div>
+          <div class="risk-row">
+            <strong>위험도</strong>
+            <span class="risk {{ candidate.risk_level }}">{{ candidate.risk_level }}</span>
+          </div>
+          {% if candidate.risks %}
+          <ul>{% for risk in candidate.risks %}<li>{{ risk }}</li>{% endfor %}</ul>
+          {% else %}<p>식별된 주요 위험 없음</p>{% endif %}
+          <h3>검토 메모</h3>
+          <p>{{ candidate.review_notes }}</p>
+          {% else %}
+          <h3>원문 일부</h3>
+          <p>{{ candidate.excerpt }}</p>
+          <div class="fallback-stats">
+            <span>규칙 점수 {{ '%.3f' | format(candidate.rule_score or 0) }}</span>
+            <span>조회 {{ candidate.views }}</span>
+            <span>추천 {{ candidate.recommendations }}</span>
+            <span>댓글 {{ candidate.comments }}</span>
+          </div>
+          {% endif %}
+          <a class="original" href="{{ candidate.url }}" target="_blank" rel="noopener noreferrer">원문 열기</a>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <footer>원문의 주장은 사실로 확인된 내용이 아닙니다. 제작 전에 반드시 사람이 원문과 위험 요소를 다시 검토하세요.</footer>
+  </main>
+</body>
+</html>

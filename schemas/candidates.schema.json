@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/candidates.schema.json",
+  "title": "Codex candidate evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_date", "evaluation_status", "candidates"],
+  "properties": {
+    "run_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "evaluation_status": {
+      "type": "string",
+      "const": "codex"
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rank",
+          "post_id",
+          "title",
+          "url",
+          "summary",
+          "reason",
+          "hook",
+          "fun_score",
+          "twist_score",
+          "clarity_score",
+          "shorts_fit_score",
+          "total_score",
+          "risks",
+          "risk_level",
+          "review_notes"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "post_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://gall\\.dcinside\\.com/"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "hook": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "fun_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "twist_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "clarity_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "shorts_fit_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "total_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 12
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "review_notes": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      }
+    }
+  }
+}

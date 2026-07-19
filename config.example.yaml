@@ -1,0 +1,33 @@
+dcinside:
+  galleries:
+    - id: example_gallery
+      name: 예시 갤러리
+      type: major
+  pages_per_gallery: 2
+  request_interval_seconds: 1.5
+  timeout_seconds: 10
+  retries: 2
+  min_body_length: 100
+  excluded_keywords: []
+  dedupe_history_days: 30
+
+prefilter:
+  candidate_count: 20
+  weights:
+    recency: 0.25
+    recommendations: 0.25
+    comments: 0.20
+    views: 0.10
+    body_length: 0.10
+    engagement: 0.10
+
+codex:
+  enabled: true
+  executable: codex
+  timeout_seconds: 300
+  final_candidate_count: 5
+  sandbox: read-only
+  ephemeral: true
+
+output:
+  base_directory: output
