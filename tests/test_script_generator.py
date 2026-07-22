@@ -67,6 +67,10 @@ def test_script_generator_reads_and_validates_structured_result(
     ]
     assert received_schema["properties"]["scripts"]["minItems"] == 2
     assert received_schema["properties"]["scripts"]["maxItems"] == 2
+    source_ids_schema = received_schema["properties"]["scripts"]["items"]["properties"]["segments"][
+        "items"
+    ]["properties"]["source_reference_ids"]
+    assert "uniqueItems" not in source_ids_schema
 
 
 def test_script_generator_rejects_changed_risk_and_invalid_duration(
@@ -88,6 +92,23 @@ def test_script_generator_rejects_changed_risk_and_invalid_duration(
     wrong_duration["scripts"][0]["segments"][0]["estimated_seconds"] = 6
     with pytest.raises(CodexError, match="시간 합계"):
         generator.validate_result(wrong_duration, topics, "120000")
+
+
+def test_script_generator_still_rejects_duplicate_source_references(
+    app_config, sample_posts
+) -> None:
+    topics = (topic_brief(sample_posts[0]),)
+    generator = ScriptGenerator(
+        app_config.codex,
+        SCHEMA_PATH,
+        PROMPT_PATH,
+        which=lambda name: "/tools/codex",
+    )
+    duplicate_reference = script_result(topics)
+    duplicate_reference["scripts"][0]["segments"][0]["source_reference_ids"].append("source_post")
+
+    with pytest.raises(CodexError, match="non-unique"):
+        generator.validate_result(duplicate_reference, topics, "120000")
 
 
 def test_script_generator_rejects_missing_warning_and_non_question_closing(

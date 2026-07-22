@@ -230,3 +230,23 @@ def test_nonzero_exit_is_classified_and_preserves_stderr(
 def test_invalid_output_schema_failure_is_classified() -> None:
     output = "invalid_request_error: invalid_json_schema: schema must have a type key"
     assert CodexRunner._classify_failure(output) == "output_schema_rejected"
+
+
+def test_output_schema_preparation_removes_keyword_but_preserves_property_name() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "uniqueItems": {"type": "string"},
+            "values": {
+                "type": "array",
+                "uniqueItems": True,
+                "items": {"type": "string"},
+            },
+        },
+    }
+
+    prepared = CodexRunner._prepare_output_schema(schema)
+
+    assert "uniqueItems" in prepared["properties"]
+    assert "uniqueItems" not in prepared["properties"]["values"]
+    assert schema["properties"]["values"]["uniqueItems"] is True

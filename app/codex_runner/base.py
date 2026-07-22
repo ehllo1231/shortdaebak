@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,25 @@ from app.storage import write_text_atomic
 
 ProcessRunner = Callable[..., subprocess.CompletedProcess[str]]
 WhichRunner = Callable[[str], str | None]
+_UNSUPPORTED_OUTPUT_SCHEMA_KEYWORDS = frozenset({"uniqueItems"})
+_SCHEMA_MAP_KEYWORDS = frozenset(
+    {"$defs", "definitions", "dependentSchemas", "patternProperties", "properties"}
+)
+_SCHEMA_SINGLE_KEYWORDS = frozenset(
+    {
+        "additionalProperties",
+        "contains",
+        "contentSchema",
+        "else",
+        "if",
+        "items",
+        "not",
+        "propertyNames",
+        "then",
+        "unevaluatedProperties",
+    }
+)
+_SCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
 
 
 class CodexError(RuntimeError):
@@ -193,6 +213,31 @@ class StructuredCodexRunner:
             return "encoding_error"
         return "nonzero_exit"
 
+    @staticmethod
+    def _prepare_output_schema(value: Any) -> Any:
+        """Copy a JSON Schema while removing keywords unsupported by Structured Outputs."""
+
+        if not isinstance(value, dict):
+            return deepcopy(value)
+        prepared: dict[str, Any] = {}
+        for key, child in value.items():
+            if key in _UNSUPPORTED_OUTPUT_SCHEMA_KEYWORDS:
+                continue
+            if key in _SCHEMA_MAP_KEYWORDS and isinstance(child, dict):
+                prepared[key] = {
+                    name: StructuredCodexRunner._prepare_output_schema(schema)
+                    for name, schema in child.items()
+                }
+            elif key in _SCHEMA_SINGLE_KEYWORDS and isinstance(child, dict):
+                prepared[key] = StructuredCodexRunner._prepare_output_schema(child)
+            elif key in _SCHEMA_LIST_KEYWORDS and isinstance(child, list):
+                prepared[key] = [
+                    StructuredCodexRunner._prepare_output_schema(schema) for schema in child
+                ]
+            else:
+                prepared[key] = deepcopy(child)
+        return prepared
+
     def execute_structured(
         self,
         stdin: str,
@@ -203,9 +248,10 @@ class StructuredCodexRunner:
             temporary_path = Path(temporary_directory)
             result_path = temporary_path / self.result_filename
             runtime_schema_path = temporary_path / self.schema_path.name
+            output_schema = self._prepare_output_schema(schema)
             write_text_atomic(
                 runtime_schema_path,
-                json.dumps(schema, ensure_ascii=False, indent=2) + "\n",
+                json.dumps(output_schema, ensure_ascii=False, indent=2) + "\n",
             )
             command = self.build_command(result_path, schema_path=runtime_schema_path)
             try:
