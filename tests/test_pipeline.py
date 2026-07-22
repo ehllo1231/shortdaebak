@@ -142,3 +142,20 @@ def test_second_run_does_not_overwrite_first_and_uses_history(app_config, sample
     run = json.loads((second.output_directory / "run.json").read_text(encoding="utf-8"))
     assert run["status"] == "insufficient_candidates"
     assert run["exclusions"]["history_duplicate"] == 25
+
+
+def test_pipeline_can_forward_log_events_to_gui(app_config, sample_posts) -> None:
+    FakeCrawler.posts = sample_posts
+    events = []
+
+    result = run_pipeline(
+        app_config,
+        now=datetime(2026, 7, 19, 15, 0, tzinfo=KST),
+        crawler_factory=FakeCrawler,
+        codex_runner_factory=SuccessfulRunner,
+        event_callback=events.append,
+    )
+
+    assert result.status == "success"
+    assert any("실행 시작" in event.message for event in events)
+    assert any("Codex 평가 완료" in event.message for event in events)

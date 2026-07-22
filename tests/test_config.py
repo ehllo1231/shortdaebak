@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import ConfigError, load_config
+from app.config import ConfigError, config_to_mapping, load_config, parse_config, save_config
 
 
 def test_load_example_config(tmp_path: Path) -> None:
@@ -62,3 +62,18 @@ def test_reject_non_ephemeral_codex(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match="ephemeral"):
         load_config(path)
+
+
+def test_config_can_be_validated_and_saved_without_changing_values(tmp_path: Path) -> None:
+    original_path = Path("config.example.yaml")
+    original = load_config(original_path)
+    validated = parse_config(config_to_mapping(original))
+    saved_path = tmp_path / "saved.yaml"
+
+    save_config(saved_path, validated)
+    reloaded = load_config(saved_path)
+
+    assert reloaded == original
+    text = saved_path.read_text(encoding="utf-8")
+    assert "갤러리" in text
+    assert "sandbox: read-only" in text

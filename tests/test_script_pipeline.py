@@ -133,3 +133,22 @@ def test_script_pipeline_does_not_overwrite_same_second_run(
 
     assert first.output_directory.name == "152000"
     assert second.output_directory.name == "152000-01"
+
+
+def test_script_pipeline_can_forward_log_events_to_gui(app_config, sample_posts, tmp_path) -> None:
+    source_run = tmp_path / "output" / "2026-07-19" / "120000"
+    _write_source_run(source_run, sample_posts)
+    events = []
+
+    result = run_script_pipeline(
+        app_config,
+        source_run,
+        (1,),
+        now=datetime(2026, 7, 19, 15, 30, tzinfo=KST),
+        generator_factory=SuccessfulScriptGenerator,
+        event_callback=events.append,
+    )
+
+    assert result.status == "success"
+    assert any("대본 실행 시작" in event.message for event in events)
+    assert any("대본 생성 완료" in event.message for event in events)

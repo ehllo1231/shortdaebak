@@ -63,3 +63,26 @@ def test_cli_routes_script_command_with_run_and_ranks(monkeypatch) -> None:
             (3, 1),
         )
     ]
+
+
+def test_cli_routes_gui_command_without_loading_pipeline_config(monkeypatch) -> None:
+    import app.gui
+
+    received = []
+    monkeypatch.setattr(
+        app.gui,
+        "launch_gui",
+        lambda path: received.append(path) or 0,
+    )
+
+    exit_code = main(["gui", "--config", "config.yaml"])
+
+    assert exit_code == 0
+    assert received == [Path("config.yaml")]
+
+
+def test_windows_gui_launcher_uses_project_venv_and_gui_command() -> None:
+    launcher = Path("run_gui.bat").read_text(encoding="utf-8")
+
+    assert '.venv\\Scripts\\python.exe" -m app gui --config config.yaml' in launcher
+    assert 'cd /d "%~dp0"' in launcher

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "dcinside-shorts-candidates"
 version = "0.1.0"
-description = "DCInside post collector and Codex-powered Shorts candidate evaluator"
+description = "GUI and CLI for Codex-powered Shorts candidate and script generation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

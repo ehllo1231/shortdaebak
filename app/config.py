@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+from app.storage import write_text_atomic
+
 WEIGHT_NAMES = (
     "recency",
     "recommendations",
@@ -107,6 +109,12 @@ def load_config(path: str | Path) -> AppConfig:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
         raise ConfigError(f"설정 파일을 읽을 수 없습니다: {exc}") from exc
+
+    return parse_config(raw)
+
+
+def parse_config(raw: Any) -> AppConfig:
+    """Validate an in-memory YAML-compatible value as application configuration."""
 
     top = _mapping(raw, "config")
     _reject_unknown(top, {"dcinside", "prefilter", "codex", "output"}, "config")
@@ -262,3 +270,45 @@ def load_config(path: str | Path) -> AppConfig:
         codex=codex_config,
         output=OutputConfig(Path(base_directory).expanduser()),
     )
+
+
+def config_to_mapping(config: AppConfig) -> dict[str, Any]:
+    return {
+        "dcinside": {
+            "galleries": [
+                {"id": gallery.id, "name": gallery.name, "type": gallery.type}
+                for gallery in config.dcinside.galleries
+            ],
+            "pages_per_gallery": config.dcinside.pages_per_gallery,
+            "request_interval_seconds": config.dcinside.request_interval_seconds,
+            "timeout_seconds": config.dcinside.timeout_seconds,
+            "retries": config.dcinside.retries,
+            "min_body_length": config.dcinside.min_body_length,
+            "excluded_keywords": list(config.dcinside.excluded_keywords),
+            "dedupe_history_days": config.dcinside.dedupe_history_days,
+            "user_agent": config.dcinside.user_agent,
+        },
+        "prefilter": {
+            "candidate_count": config.prefilter.candidate_count,
+            "weights": dict(config.prefilter.weights),
+        },
+        "codex": {
+            "enabled": config.codex.enabled,
+            "executable": config.codex.executable,
+            "timeout_seconds": config.codex.timeout_seconds,
+            "final_candidate_count": config.codex.final_candidate_count,
+            "sandbox": config.codex.sandbox,
+            "ephemeral": config.codex.ephemeral,
+        },
+        "output": {"base_directory": str(config.output.base_directory)},
+    }
+
+
+def save_config(path: str | Path, config: AppConfig) -> None:
+    content = yaml.safe_dump(
+        config_to_mapping(config),
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    )
+    write_text_atomic(Path(path), content)

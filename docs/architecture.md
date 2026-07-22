@@ -8,7 +8,7 @@
 
 ## 1. 현재 시스템
 
-현재 프로그램은 DCInside 게시물을 대상으로 후보 선정과 선택 후보 대본 작성을 각각 실행하는 동기식 배치 CLI다.
+현재 프로그램은 DCInside 게시물을 대상으로 후보 선정과 선택 후보 대본 작성을 각각 실행하는 동기식 배치 파이프라인이다. Windows 데스크톱 GUI와 CLI가 같은 설정 모델과 파이프라인을 호출한다.
 
 ```text
 Codex 실행 환경 점검
@@ -195,6 +195,28 @@ render_preset: fast_caption
 - 렌더링: 여러 승인된 쇼츠 작업을 독립적으로 처리 가능
 
 병렬화 여부가 데이터 계약이나 콘텐츠 프로필에 드러나지 않도록 한다. 외부 서비스의 제한, 비용, 실패 재시도와 결과 순서 보장이 먼저 설계되어야 한다.
+
+### 7.1 GUI 오케스트레이션
+
+Tkinter GUI는 파이프라인을 복제하지 않는 프레젠테이션 계층이다. 후보 생성 탭은 검증된 `AppConfig`로 기존 후보 파이프라인을 실행하고, 대본 생성 탭은 성공한 후보 보고서의 JSON 계약을 읽어 선택 순위를 기존 대본 파이프라인에 전달한다.
+
+```mermaid
+flowchart LR
+    CandidateTab["후보 생성 GUI"] --> ConfigService["설정 검증·저장"]
+    ConfigService --> CandidatePipeline["후보 선정 파이프라인"]
+    CandidatePipeline --> CandidateReport["report.html"]
+
+    ScriptTab["대본 생성 GUI"] --> ReportLoader["최근 보고서·파일 선택"]
+    CandidateReport --> ReportLoader
+    ReportLoader --> CandidateSelection["후보 확인·선택"]
+    CandidateSelection --> ScriptPipeline["대본 생성 파이프라인"]
+    ScriptPipeline --> ScriptReport["script_report.html"]
+
+    CandidatePipeline -. 진행 이벤트 .-> StatusPanel["GUI 진행률·로그"]
+    ScriptPipeline -. 진행 이벤트 .-> StatusPanel
+```
+
+후보 수집과 Codex 실행은 GUI 메인 스레드 밖의 작업 스레드에서 수행한다. 파이프라인의 선택적 이벤트 콜백은 로그와 진행률을 thread-safe 큐에 넣고, Tk 메인 스레드는 주기적으로 큐를 소비해 화면을 갱신한다. CLI는 콜백을 전달하지 않으므로 기존 동작을 유지한다. 동시 작업과 실행 중 창 닫기는 막으며, 중도 취소는 현재 지원하지 않는다.
 
 ## 8. 단계적 확장 순서
 

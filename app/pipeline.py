@@ -12,6 +12,7 @@ from typing import Any
 from app.codex_runner import CodexError, CodexRunner
 from app.config import AppConfig
 from app.crawler import CrawlBlockedError, CrawlError, DcinsideCrawler
+from app.events import CallbackLogHandler, EventCallback
 from app.filtering import filter_posts
 from app.models import KST, HistoryIndex, Post
 from app.progress import ProgressStreamHandler
@@ -44,7 +45,9 @@ def _create_run_directory(base: Path, started_at: datetime) -> tuple[str, Path]:
     raise OSError(f"실행 폴더를 생성할 수 없습니다: {date_directory}")
 
 
-def _configure_logger(log_path: Path) -> logging.Logger:
+def _configure_logger(
+    log_path: Path, event_callback: EventCallback | None = None
+) -> logging.Logger:
     logger = logging.getLogger(f"dc_shorts.{log_path.parent.name}")
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -58,6 +61,10 @@ def _configure_logger(log_path: Path) -> logging.Logger:
     stream_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
+    if event_callback is not None:
+        callback_handler = CallbackLogHandler(event_callback)
+        callback_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        logger.addHandler(callback_handler)
     return logger
 
 
@@ -101,11 +108,12 @@ def run_pipeline(
     now: datetime | None = None,
     crawler_factory: Callable[..., Any] = DcinsideCrawler,
     codex_runner_factory: Callable[..., Any] = CodexRunner,
+    event_callback: EventCallback | None = None,
 ) -> PipelineResult:
     started_at = (now or datetime.now(KST)).astimezone(KST)
     base_directory = config.output.base_directory
     run_id, output_directory = _create_run_directory(base_directory, started_at)
-    logger = _configure_logger(output_directory / "run.log")
+    logger = _configure_logger(output_directory / "run.log", event_callback)
     stderr_path = output_directory / "codex_stderr.log"
     write_text_atomic(stderr_path, "")
     run_data: dict[str, Any] = {

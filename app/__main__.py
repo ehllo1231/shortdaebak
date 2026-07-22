@@ -33,9 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=("collect", "script"),
+        choices=("collect", "script", "gui"),
         default="collect",
-        help="collect(기본값): 후보 선별, script: 선택 후보 대본 생성",
+        help="collect(기본값): 후보 선별, script: 대본 생성, gui: 데스크톱 GUI",
     )
     parser.add_argument("--config", required=True, type=Path, help="YAML 설정 파일 경로")
     parser.add_argument("--run", type=Path, help="script 명령에서 사용할 후보 실행 폴더")
@@ -55,8 +55,19 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("Python 3.12 이상이 필요합니다.")
     if args.command == "script" and (args.run is None or args.ranks is None):
         parser.error("script 명령에는 --run과 --ranks가 필요합니다.")
-    if args.command == "collect" and (args.run is not None or args.ranks is not None):
+    if args.command != "script" and (args.run is not None or args.ranks is not None):
         parser.error("--run과 --ranks는 script 명령에서만 사용할 수 있습니다.")
+    if args.command == "gui":
+        from app.gui import GuiUnavailableError, launch_gui
+
+        try:
+            return launch_gui(args.config)
+        except ConfigError as exc:
+            print(f"설정 오류: {exc}", file=sys.stderr)
+            return 2
+        except (OSError, GuiUnavailableError) as exc:
+            print(f"GUI 오류: {exc}", file=sys.stderr)
+            return 2
     try:
         config = load_config(args.config)
         if args.command == "script":

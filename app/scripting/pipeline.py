@@ -14,6 +14,7 @@ from jsonschema.exceptions import SchemaError
 
 from app.codex_runner import CodexError
 from app.config import AppConfig
+from app.events import CallbackLogHandler, EventCallback
 from app.models import KST
 from app.progress import ProgressStreamHandler
 from app.scripting.adapters import ScriptInputError, load_community_topic_briefs
@@ -49,7 +50,9 @@ def _create_script_run_directory(source_run_directory: Path, started_at: datetim
     raise OSError(f"대본 실행 폴더를 생성할 수 없습니다: {base}")
 
 
-def _configure_logger(log_path: Path) -> logging.Logger:
+def _configure_logger(
+    log_path: Path, event_callback: EventCallback | None = None
+) -> logging.Logger:
     logger = logging.getLogger(f"dc_shorts.script.{log_path.parent.name}")
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -63,6 +66,10 @@ def _configure_logger(log_path: Path) -> logging.Logger:
     stream_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
+    if event_callback is not None:
+        callback_handler = CallbackLogHandler(event_callback)
+        callback_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        logger.addHandler(callback_handler)
     return logger
 
 
@@ -98,6 +105,7 @@ def run_script_pipeline(
     *,
     now: datetime | None = None,
     generator_factory: Callable[..., Any] = ScriptGenerator,
+    event_callback: EventCallback | None = None,
 ) -> ScriptPipelineResult:
     source_run_id, topics = load_community_topic_briefs(source_run_directory, ranks)
     brief_set_id = source_run_id
@@ -106,7 +114,7 @@ def run_script_pipeline(
 
     started_at = (now or datetime.now(KST)).astimezone(KST)
     output_directory = _create_script_run_directory(source_run_directory.resolve(), started_at)
-    logger = _configure_logger(output_directory / "script_run.log")
+    logger = _configure_logger(output_directory / "script_run.log", event_callback)
     stderr_path = output_directory / "codex_stderr.log"
     write_text_atomic(stderr_path, "")
     run_data: dict[str, Any] = {

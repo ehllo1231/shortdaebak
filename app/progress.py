@@ -121,6 +121,7 @@ class ProgressBar:
             _duration(remaining),
             extra={
                 "progress_update": True,
+                "progress_percent": ratio * 100,
                 "progress_complete": self.completed >= self.total,
             },
         )
