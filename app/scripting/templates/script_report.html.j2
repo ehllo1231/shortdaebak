@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shorts 대본 보고서 - {{ generated_at.strftime('%Y-%m-%d %H:%M') }}</title>
+  <style>
+    :root { color-scheme: light; --bg:#f4f6f8; --surface:#fff; --text:#18202a; --muted:#5f6b78; --line:#d9dfe6; --accent:#006d77; --soft:#e2f2f2; --warn:#8a4b00; --warn-soft:#fff1d6; --danger:#a11b26; --danger-soft:#ffe8ea; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:"Segoe UI","Malgun Gothic",sans-serif; line-height:1.6; }
+    header { background:#16212b; color:#fff; border-bottom:4px solid var(--accent); }
+    .inner, main { width:min(1080px, calc(100% - 32px)); margin:0 auto; }
+    .inner { padding:28px 0 24px; }
+    h1 { margin:0; font-size:28px; } .meta { margin:7px 0 0; color:#c7d1da; font-size:14px; }
+    main { padding:24px 0 48px; }
+    .status, article { background:var(--surface); border:1px solid var(--line); border-radius:6px; }
+    .status { padding:14px 16px; border-left:5px solid var(--accent); margin-bottom:20px; }
+    .status.error { border-left-color:var(--danger); background:var(--danger-soft); }
+    .status p { margin:0; } .status strong { display:block; }
+    .toolbar { display:flex; gap:14px; margin-bottom:20px; }
+    a { color:var(--accent); font-weight:700; text-decoration:none; } a:hover { text-decoration:underline; }
+    .scripts { display:grid; gap:20px; }
+    article { overflow:hidden; } article.high { border-color:#dc7b84; }
+    .head { padding:18px; border-bottom:1px solid var(--line); }
+    .head h2 { margin:0; font-size:21px; } .source-title { margin:4px 0 0; color:var(--muted); }
+    .badges { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+    .badge { padding:2px 8px; border:1px solid var(--line); border-radius:3px; font-size:12px; font-weight:700; }
+    .badge.medium { color:var(--warn); background:var(--warn-soft); border-color:#d9a151; }
+    .badge.high { color:var(--danger); background:var(--danger-soft); border-color:#dc7b84; }
+    .body { padding:18px; }
+    .warning { padding:12px 14px; background:var(--warn-soft); border-left:4px solid var(--warn); margin-bottom:16px; }
+    .warning.high { background:var(--danger-soft); border-left-color:var(--danger); }
+    .warning ul { margin:6px 0 0; padding-left:20px; }
+    .timeline { display:grid; gap:10px; }
+    .segment { display:grid; grid-template-columns:88px 1fr; gap:14px; padding:14px; border:1px solid var(--line); border-radius:4px; }
+    .segment-label { color:var(--accent); font-weight:800; text-transform:uppercase; font-size:12px; }
+    .segment-time { display:block; color:var(--muted); font-weight:400; }
+    .segment h3 { margin:0 0 4px; font-size:13px; color:var(--muted); }
+    .segment p { margin:0 0 9px; white-space:pre-line; } .segment p:last-child { margin-bottom:0; }
+    .caption { font-weight:700; color:var(--accent); }
+    .full { margin-top:18px; padding:16px; background:#f0f3f5; }
+    .full h3 { margin:0 0 7px; font-size:15px; } .full p { margin:0; white-space:pre-line; }
+    .links { display:flex; gap:14px; margin-top:16px; }
+    footer { margin-top:28px; color:var(--muted); font-size:12px; }
+    @media (max-width:700px) { .inner, main { width:min(100% - 20px,1080px); } .segment { grid-template-columns:1fr; gap:4px; } h1 { font-size:23px; } }
+  </style>
+</head>
+<body>
+  <header><div class="inner"><h1>YouTube Shorts 대본</h1><p class="meta">입력 묶음 {{ brief_set_id }} · {{ generated_at.strftime('%Y-%m-%d %H:%M:%S KST') }}</p></div></header>
+  <main>
+    {% if status == 'success' %}
+    <section class="status"><strong>Codex 대본 생성 완료</strong><p>선택한 {{ scripts | length }}개 주제를 45~60초 제작용 대본으로 변환했습니다.</p></section>
+    {% else %}
+    <section class="status error"><strong>대본 생성을 완료하지 못했습니다.</strong><p>{{ codex_error or 'script_run.log를 확인하세요.' }}</p></section>
+    {% endif %}
+    {% if candidate_report_href %}<nav class="toolbar"><a href="{{ candidate_report_href }}">후보 보고서로 돌아가기</a></nav>{% endif %}
+    <section class="scripts" aria-label="생성된 대본">
+      {% for script in scripts %}
+      {% set topic = topics_by_id[script.topic_id] %}
+      <article class="{{ script.risk_level }}">
+        <div class="head">
+          <h2>{{ script.script_title }}</h2>
+          <p class="source-title">{% if topic.provenance %}후보 {{ topic.provenance.candidate_rank }}위 · {% endif %}{{ script.topic_title }}</p>
+          <div class="badges"><span class="badge">{{ script.estimated_duration_seconds }}초</span><span class="badge {{ script.risk_level }}">위험도 {{ script.risk_level }}</span><span class="badge">사람 검수 필수</span></div>
+        </div>
+        <div class="body">
+          <div class="warning {{ 'high' if script.risk_level == 'high' else '' }}">
+            <strong>{% if script.risk_level == 'high' %}고위험 후보입니다. 제작 전에 반드시 검토하세요.{% else %}검수 경고{% endif %}</strong>
+            <ul>{% for warning in script.review_warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+          </div>
+          <div class="timeline">
+            {% for segment in script.segments %}
+            <section class="segment">
+              <div class="segment-label">{{ segment.role }}<span class="segment-time">{{ segment.estimated_seconds }}초</span></div>
+              <div><h3>내레이션</h3><p>{{ segment.narration }}</p><h3>화면 자막</h3><p class="caption">{{ segment.on_screen_text }}</p><h3>원문 근거</h3><p>{{ segment.source_basis }}</p></div>
+            </section>
+            {% endfor %}
+          </div>
+          <section class="full"><h3>녹음용 합본</h3><p>{% for segment in script.segments %}{{ segment.narration }}{% if not loop.last %}<br><br>{% endif %}{% endfor %}</p></section>
+          <div class="links">{% for source in script.source_references %}{% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">원문 열기</a>{% endif %}{% endfor %}</div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <footer>대본은 확인되지 않은 입력을 바탕으로 생성됩니다. 게시 전 원문, 사실 관계, 개인정보와 권리 침해 가능성을 사람이 검토하세요.</footer>
+  </main>
+</body>
+</html>
